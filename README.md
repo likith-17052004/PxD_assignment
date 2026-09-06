@@ -59,3 +59,10 @@ Then open `http://127.0.0.1:8080`.
 ## Deployment
 
 Deployed on Vercel as a static site — no framework, no build command. `vercel.json` pins the project to static hosting so Vercel doesn't try to auto-detect it as a Python app (the pipeline's `requirements.txt` otherwise confuses that detection). `.vercelignore` keeps the notebooks and raw/intermediate data files out of the deployed bundle; only `index.html`, the two GeoJSON files, and `data/processed/district_panel.csv` are served.
+
+## Responsible use of Gen AI
+
+Generative AI tools were used as coding assistants during development, with all logic, data-cleaning decisions, and edge-case handling reviewed and directed by me:
+
+- **Claude Code** and **Cursor** — used for writing and editing code (the notebooks and the front end).
+- **Vercel** — used to deploy the static site.
