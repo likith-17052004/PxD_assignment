@@ -1211,9 +1211,11 @@
     var crop = el(prefix + "Crop").value;
     var seasons = seasonsForCrop(crop);
     var seasonPreferred = el(prefix + "Season").value;
+    var seasonFallback = isCropMetric()
+      ? (seasons.indexOf("Kharif") !== -1 ? "Kharif" : seasons[0])
+      : (seasons.indexOf("Total") !== -1 ? "Total" : seasons[0]);
     fillSelect(el(prefix + "Season"), seasons,
-      seasons.indexOf(seasonPreferred) !== -1 ? seasonPreferred :
-      (seasons.indexOf("Kharif") !== -1 ? "Kharif" : seasons[0]));
+      seasons.indexOf(seasonPreferred) !== -1 ? seasonPreferred : seasonFallback);
     var yearList = yearsForCropSeason(crop, el(prefix + "Season").value);
     var yearPreferred = keepYear || el(prefix + "Year").value;
     fillSelect(el(prefix + "Year"), yearList,
