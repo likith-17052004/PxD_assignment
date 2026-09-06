@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>India Crop Yield Explorer</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --page: #EFF1F0;
+    --panel: #FFFFFF;
+    --ink: #14211E;
+    --muted: #5C6B66;
+    --hairline: #DDE3E0;
+    --accent: #0E6E63;
+    --nodata: #E3E7E5;
+    --bar: #111111;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    font-feature-settings: 'tnum' 1;
+    overflow: hidden;
+  }
+  body.on-home { overflow: auto; }
+
+  #explorer {
+    position: absolute;
+    inset: 0;
+  }
+  body.on-home #explorer,
+  body.on-methodology #explorer {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  #map {
+    position: absolute;
+    inset: 0;
+    background: #e8ecea;
+  }
+
+  .btn {
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 550;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    background: var(--panel);
+    color: var(--ink);
+    padding: .48rem .85rem;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    padding: .62rem 1.1rem;
+  }
+  .btn-ghost {
+    background: rgba(255,255,255,.94);
+  }
+
+  .home {
+    display: none;
+    position: relative;
+    z-index: 800;
+    width: 100%;
+    min-height: 100vh;
+    background: var(--page);
+    flex-direction: column;
+  }
+  body.on-home #home { display: flex; }
+  body.on-methodology #methodology { display: flex; }
+
+  .home-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(220px, auto);
+    gap: 3rem;
+    align-items: end;
+    padding: 2.6rem 4.2rem 2rem;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--panel);
+  }
+  .home-kicker {
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 .5rem;
+  }
+  .home h1 {
+    margin: 0 0 .55rem;
+    font-size: clamp(2rem, 3.2vw, 2.85rem);
+    font-weight: 600;
+    letter-spacing: -.035em;
+    line-height: 1.08;
+  }
+  .home .lead {
+    margin: 0;
+    font-size: 1.08rem;
+    color: var(--muted);
+    max-width: 72ch;
+    line-height: 1.55;
+  }
+  .home-hero .btn-primary {
+    font-size: 1rem;
+    padding: .78rem 1.35rem;
+    white-space: nowrap;
+  }
+
+  .home-main {
+    flex: 1;
+    width: 100%;
+    padding: 1.8rem 4.2rem 2.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .home-block h2 {
+    margin: 0 0 .75rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -.012em;
+  }
+  .home p, .home li {
+    color: #3d4a46;
+    font-size: .96rem;
+    line-height: 1.55;
+  }
+  .home p { margin: 0 0 .7rem; }
+  .home p:last-child { margin-bottom: 0; }
+  .home ul { margin: 0; padding-left: 1.15rem; }
+  .home li { margin: 0 0 .28rem; }
+
+  .season-panel {
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 1.15rem 1.25rem 1.2rem;
+    overflow-x: auto;
+  }
+  .season-cal {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .92rem;
+    line-height: 1.45;
+  }
+  .season-cal th {
+    text-align: left;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 .75rem .55rem 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .season-cal td {
+    padding: .7rem .75rem .7rem 0;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+    color: #3d4a46;
+  }
+  .season-cal tr:last-child td { border-bottom: 0; padding-bottom: 0; }
+  .season-cal td:first-child {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    width: 8.5rem;
+  }
+
+  .source-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.1rem;
+  }
+  .source-grid article,
+  .method-grid article,
+  .step {
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 1.15rem 1.25rem 1.2rem;
+    height: 100%;
+  }
+  .source-grid strong,
+  .method-grid h2,
+  .step strong {
+    display: block;
+    color: var(--ink);
+  }
+  .source-grid strong { margin-bottom: .4rem; font-size: 1rem; }
+
+  .method-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.1rem;
+    flex: 1;
+  }
+
+  .edge-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem;
+  }
+  .edge-item {
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 1.05rem 1.2rem 1.1rem;
+  }
+  .edge-item h3 {
+    margin: 0 0 .4rem;
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--ink);
+  }
+  .edge-item p { margin: 0; color: #3d4a46; }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.1rem;
+  }
+  .step .n {
+    display: block;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+  .step strong { margin-bottom: .3rem; font-size: .95rem; }
+
+  @media (max-width: 1100px) {
+    .home-hero, .home-main { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .home-hero { grid-template-columns: 1fr; gap: 1.2rem; align-items: start; }
+    .source-grid, .method-grid, .edge-grid, .steps { grid-template-columns: 1fr; }
+  }
+
+  .leaflet-container { font-family: inherit; background: #e8ecea; }
+  .leaflet-control-zoom { margin: 0 12px 28px 0 !important; border: 0 !important; box-shadow: 0 8px 24px rgba(20,33,30,.14) !important; }
+  .leaflet-control-zoom a { width: 34px !important; height: 34px !important; line-height: 34px !important; color: var(--ink) !important; }
+
+  .overlay {
+    position: absolute;
+    z-index: 500;
+    pointer-events: none;
+  }
+  .overlay > * { pointer-events: auto; }
+
+  .topbar {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+
+  .card {
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(20,33,30,.12);
+  }
+
+  .brand {
+    padding: .7rem .9rem .75rem;
+    min-width: min(280px, 42vw);
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+  }
+  .brand-actions { flex-shrink: 0; margin-top: .1rem; display: flex; flex-direction: row; gap: .4rem; }
+  .home-link { flex-shrink: 0; white-space: nowrap; }
+  .brand h1 {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.02em;
+  }
+  .brand p {
+    margin: .18rem 0 0;
+    color: var(--muted);
+    font-size: .78rem;
+  }
+
+  .metric-card { padding: .55rem .7rem .65rem; }
+  .metric-card label,
+  .scenario label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: .28rem;
+  }
+
+  select {
+    width: 100%;
+    font: inherit;
+    font-size: .88rem;
+    color: var(--ink);
+    background: #FAFBFA;
+    border: 1px solid var(--hairline);
+    border-radius: 7px;
+    padding: .4rem 1.6rem .4rem .55rem;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4.2 6 8.4l4-4.2' fill='none' stroke='%235C6B66' stroke-width='1.4'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right .5rem center;
+  }
+  select:hover { border-color: var(--accent); }
+  select:disabled { opacity: .55; cursor: not-allowed; }
+  select:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .scenario {
+    top: 12px;
+    width: min(280px, calc(50vw - 48px));
+    padding: .7rem .75rem .8rem;
+  }
+  .scenario.left { left: 12px; margin-top: 5.1rem; }
+  .scenario.right { right: 12px; margin-top: 5.1rem; }
+  .scenario .tag {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .45rem;
+  }
+  .scenario .grid {
+    display: grid;
+    gap: .5rem;
+  }
+
+  .legend-card {
+    left: 12px;
+    bottom: 12px;
+    width: min(320px, calc(100vw - 24px));
+    padding: .75rem .85rem .8rem;
+  }
+  .legend-card h2 {
+    margin: 0 0 .45rem;
+    font-size: .88rem;
+    font-weight: 550;
+  }
+  .legend-card .readout {
+    font-size: .75rem;
+    color: var(--muted);
+    margin-bottom: .55rem;
+  }
+  .legend .bar { height: 9px; border-radius: 5px; margin-bottom: .35rem; }
+  .legend .ticks { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); }
+  .legend .unit {
+    margin-top: .45rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+  .legend .swatch {
+    width: 11px; height: 11px; border-radius: 3px;
+    border: 1px solid var(--hairline);
+    background: var(--nodata);
+    display: inline-block;
+  }
+
+  .notice {
+    position: fixed;
+    z-index: 900;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, calc(100vw - 32px));
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 1.3rem 1.45rem;
+    box-shadow: 0 16px 40px rgba(20,33,30,.18);
+    z-index: 700;
+  }
+  .notice h3 { margin: 0 0 .5rem; font-size: 1.02rem; font-weight: 550; }
+  .notice p { margin: 0 0 .55rem; color: var(--muted); font-size: .9rem; }
+  .notice p:last-child { margin-bottom: 0; }
+  code {
+    background: #F2F4F3;
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: .1rem .36rem;
+    font-size: .82rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .pickers { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .8rem; }
+  .pickers label { font-size: .82rem; color: var(--muted); display: block; margin-bottom: .25rem; }
+  input[type=file] { font: inherit; font-size: .82rem; max-width: 280px; }
+
+  .swipe {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    z-index: 550;
+    pointer-events: none;
+  }
+  .swipe-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -1.5px;
+    width: 3px;
+    background: var(--bar);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.35);
+  }
+  .swipe-handle {
+    pointer-events: auto;
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translate(-50%, -50%);
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 3px solid var(--bar);
+    background: #fff;
+    color: var(--bar);
+    cursor: ew-resize;
+    box-shadow: 0 6px 18px rgba(0,0,0,.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+  }
+  .swipe-handle:active { cursor: grabbing; }
+  .howto {
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    left: 28px;
+    transform: translateY(-50%);
+    background: var(--bar);
+    color: #fff;
+    font-size: .78rem;
+    padding: .45rem .65rem;
+    border-radius: 6px;
+    width: max-content;
+    max-width: 220px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.25);
+  }
+  .howto::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: var(--bar);
+    border-left: 0;
+  }
+
+  .leaflet-tooltip.district-tip {
+    background: #FFF;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(20,33,30,.12);
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .leaflet-tooltip.district-tip::before { display: none; }
+  .district-tip .tip-name { font-weight: 550; }
+  .district-tip .tip-state { color: var(--muted); margin-bottom: .35rem; }
+  .district-tip .side {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 0 .55rem;
+    align-items: baseline;
+  }
+  .district-tip .side + .side { margin-top: .2rem; }
+  .district-tip .k { color: var(--muted); }
+  .district-tip .delta { margin-top: .35rem; padding-top: .3rem; border-top: 1px solid var(--hairline); display: flex; justify-content: space-between; gap: 1rem; }
+  .district-tip .tip-miss {
+    white-space: normal;
+    max-width: 280px;
+    margin-top: .35rem;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 820px) {
+    .scenario { width: min(200px, calc(50vw - 20px)); }
+    .scenario .grid { gap: .35rem; }
+    .brand p { display: none; }
+    .brand-actions { flex-wrap: wrap; }
+    .brand-actions .btn { padding: .42rem .65rem; font-size: .82rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+
+<body class="on-home">
+
+<section class="home" id="home" aria-label="Home">
+  <header class="home-hero">
+    <div>
+      <p class="home-kicker">District-level crop &amp; rainfall explorer</p>
+      <h1>India Crop Yield Explorer</h1>
+      <p class="lead">A full-screen district map for comparing crop yield, sown area, and monsoon rainfall across India, side by side. Pick a crop, a season and a year on each side, then swipe one map over the other to see where things changed.</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="openExplorer">Open the explorer</button>
+  </header>
+
+  <div class="home-main">
+    <div class="home-block">
+      <h2>What this is</h2>
+      <p>This tool puts three public datasets — a crop-production yearbook, IMD rainfall grids, and a district boundary map — on one map, so questions like "was this a weak monsoon year here?" or "how did sown area for this crop change between two years?" can be answered by looking, not by joining spreadsheets. Grey districts are an honest gap, not a zero: the crop yearbook does not have a row for every district, crop, season and year, and hovering says why instead of guessing. See <strong>Methodology</strong> inside the explorer for exactly how the data is cleaned, joined and drawn.</p>
+    </div>
+
+    <div class="home-block">
+      <h2>Where the data come from</h2>
+      <div class="source-grid">
+        <article>
+          <strong>Crop statistics</strong>
+          <p>District-level area, production and yield from the DES crop yearbook, cleaned in <code>crop_clean.ipynb</code>. Names are matched onto the map polygons. Covers 1997–98 through 2022–23.</p>
+        </article>
+        <article>
+          <strong>IMD rainfall</strong>
+          <p>India Meteorological Department 0.25° daily rainfall grids for 1997–2023, downloaded and turned into district seasonal totals in <code>imd_clean.ipynb</code>.</p>
+        </article>
+        <article>
+          <strong>Boundaries</strong>
+          <p>Current district polygons in <code>data/INDIA_DISTRICTS.geojson</code>. Crop and rainfall are both joined onto this one map, so every district uses the same shape regardless of when the underlying statistic was published.</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="home-block">
+      <h2>Use cases</h2>
+      <div class="source-grid">
+        <article>
+          <strong>Monsoon impact on yield</strong>
+          <p>Colour by rainfall anomaly on one side and yield on the other, same crop/season/year, then swipe to see whether a weak or strong monsoon lines up with low or high yield in a district.</p>
+        </article>
+        <article>
+          <strong>Year-over-year comparison</strong>
+          <p>Same crop and season, two different years left and right — a drought year against a normal one, or the latest year against a decade ago — to see which districts moved and by how much.</p>
+        </article>
+        <article>
+          <strong>Cropping pattern by district</strong>
+          <p>Hold the year fixed and switch crop or season to see where a crop is actually grown and reported, versus where it is genuinely absent rather than just under-reported.</p>
+        </article>
+        <article>
+          <strong>Quick reference without raw files</strong>
+          <p>Skip downloading and joining the DES yearbook, IMD grids and a district shapefile — the join and its known gaps are already worked out and explained on hover.</p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="home" id="methodology" aria-label="Methodology">
+  <header class="home-hero">
+    <div>
+      <p class="home-kicker">Methodology</p>
+      <h1>How the data is cleaned, joined and rendered</h1>
+      <p class="lead">Crop statistics and rainfall are cleaned in separate notebooks, merged into one table, then drawn on the map exactly as that table has it — nothing is filled in to make a district look complete. This page walks through each step and every edge case it runs into.</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="backToExplorer">Back to the map</button>
+  </header>
+
+  <div class="home-main">
+    <div class="home-block">
+      <h2>Seasons and dates</h2>
+      <p>The crop file only carries season <em>names</em> (Kharif, Rabi, Total, Whole Year, Summer, Winter, Autumn). Those rows are not given calendar start and end dates, so yield and sown area are never re-windowed. Rainfall uses fixed calendar windows, then the totals are labelled with the same agricultural year as the crop file (<code>2014-2015</code> means the year that starts in 2014).</p>
+      <div class="season-panel">
+        <table class="season-cal">
+          <thead>
+            <tr>
+              <th>Season</th>
+              <th>Dates used</th>
+              <th>How it is labelled</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Kharif</td>
+              <td>1 June through 30 September of the start year (122 days). Example for <code>2014-2015</code>: 1 June 2014 – 30 September 2014.</td>
+              <td>Crop: rows tagged Kharif in the CSV, as given. Rain: IMD sum over those dates.</td>
+            </tr>
+            <tr>
+              <td>Rabi</td>
+              <td>1 October through 31 December of the start year, plus 1 January through 31 March of the next calendar year (182 days in a non-leap year). Example for <code>2014-2015</code>: 1 October 2014 – 31 March 2015.</td>
+              <td>Crop: rows tagged Rabi in the CSV. Rain: IMD sum over those dates, tagged to the year Rabi started (not to January’s calendar year).</td>
+            </tr>
+            <tr>
+              <td>Annual (rainfall only)</td>
+              <td>1 January through 31 December of the start year (365 days, or 366 if that calendar year is a leap year). Example for <code>2014-2015</code>: 1 January 2014 – 31 December 2014 — not October–March, and not June–May.</td>
+              <td>Used when the crop season is anything other than Kharif or Rabi (Total, Whole Year, Summer, Winter, Autumn).</td>
+            </tr>
+            <tr>
+              <td>Total</td>
+              <td>No calendar window. This is a reporting category in the crop yearbook, not a date range we compute.</td>
+              <td>Yield/area: CSV rows labelled Total. Rain: the Annual window above.</td>
+            </tr>
+            <tr>
+              <td>Whole Year</td>
+              <td>No calendar window in this app. Shown only if the crop file has that label.</td>
+              <td>Yield/area: CSV as-is. Rain: Annual (1 Jan – 31 Dec of the start year).</td>
+            </tr>
+            <tr>
+              <td>Summer, Winter, Autumn</td>
+              <td>No calendar windows defined here. The crop file uses these labels; we do not map them onto months.</td>
+              <td>Yield/area: CSV as-is. Rain: Annual (1 Jan – 31 Dec of the start year).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>April and May are not in Kharif or Rabi. They still sit inside the Annual rainfall total. Months are inclusive: Kharif includes 30 September; Rabi includes 31 March.</p>
+    </div>
+
+    <div class="method-grid">
+      <article>
+        <h2>How the crop table is prepared</h2>
+        <p>See <code>crop_clean.ipynb</code>. Rows missing a district, crop or year are dropped. Duplicates: yield is the mean, area and production are summed. District names are normalised onto the GeoJSON (garbled map labels, aliases like Ahmadabad/Ahmedabad). Unmatched names are listed in <code>crop_unmatched_districts.csv</code> and do not go on the map.</p>
+        <p><code>build_panel.ipynb</code> then stacks crop rows with rain-only rows (crop left blank) so a grey yield polygon still has a rainfall row and a written reason.</p>
+      </article>
+      <article>
+        <h2>How IMD rainfall is turned into districts</h2>
+        <p>Each land cell (~25 km) is assigned to the district that contains its centre. Tiny districts that catch no cell use the nearest cell to their centroid. Cells in a district are averaged each day, then summed over the windows in <strong>Seasons and dates</strong> (Kharif 1 Jun–30 Sep; Rabi 1 Oct–31 Mar; Annual 1 Jan–31 Dec of the start year).</p>
+        <p>Years are labelled 1997–1998 to match the crop file. Seasons with under 90% of expected days are dropped. The anomaly is the percent difference from that district’s long-term seasonal mean. This is written by <code>imd_clean.ipynb</code> to <code>data/processed/rainfall_district_seasonal.csv</code>.</p>
+      </article>
+    </div>
+
+    <div class="home-block">
+      <h2>How edge cases are handled</h2>
+      <p>Public crop yearbooks, IMD grids and a current district map were never designed as one table. We do not invent values to make the map look complete. Each case below is either dropped, left grey, repaired only when the match is unique, or computed from the grid onto today’s polygons (rainfall only).</p>
+      <div class="edge-grid">
+        <article class="edge-item">
+          <h3>No crop row for that district</h3>
+          <p>If the statistics file has no area/yield for that crop, season and year, the polygon stays grey. Missing is not filled with zero, a neighbour, or a state average. The legend shows how many of the 820 polygons actually coloured.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Crop not grown or not reported everywhere</h3>
+          <p>Rice, wheat and the rest are not present in every district. A grey Rice map in a non-rice district or a grey Rabi map where only Kharif is reported is expected. It does not mean the join failed.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Season labels (Total, Whole Year, Summer…)</h3>
+          <p>Crop colour uses the season string from the CSV as-is — those labels have no start/end dates in the file. <strong>Total</strong> is a reporting category many states leave blank, so it is much emptier than Kharif. Whole Year, Summer, Winter and Autumn stay on the crop map with no extra date filter. For rainfall, Kharif is 1 June–30 September and Rabi is 1 October–31 March; every other crop season uses IMD <strong>Annual</strong> (1 January–31 December of the start year).</p>
+        </article>
+        <article class="edge-item">
+          <h3>Blank or duplicate crop rows</h3>
+          <p>Rows with no district, crop or year are dropped. Duplicate rows for the same district–crop–season–year: yield is the mean of the reported yields; area and production are summed.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Spelling, punctuation and “District”</h3>
+          <p>Names are lowercased, <code>&amp;</code> becomes “and”, punctuation is stripped, and a trailing “district” is removed so “Nashik District” and “Nashik” join. Parenthetical extra names (for example Kabirdham) are stripped and tried as a second key.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Garbled and truncated map labels</h3>
+          <p>The GeoJSON file misspells many districts (<code>Bengal#ru</code>, <code>B&gt;NKURA</code>, <code>DEHRAD@N</code>, <code>B\dar</code>). Those characters are repaired to letters before matching. Short truncated labels (for example <code>Chikkaball</code>) are joined only if exactly one crop-table name starts with that stem. One-letter leftovers (<code>B</code>, <code>H</code>, empty names) are left unmatched.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Known renames and aliases</h3>
+          <p>A small alias list covers pairs such as Ahmadabad/Ahmedabad, Ahmednagar/Ahilyanagar, Mysuru/Mysore, Angul/Anugul, Budgam/Badgam. If two crop names are equally close, we do not guess — the polygon stays grey.</p>
+        </article>
+        <article class="edge-item">
+          <h3>District codes are not used</h3>
+          <p>The crop file’s <code>district_code</code> and the map’s <code>dist_code</code> / <code>D_CODE</code> are different numbering systems (the same number can mean Chittoor on the map and a district in another state in the CSV). Join is by name only, never by those codes.</p>
+        </article>
+        <article class="edge-item">
+          <h3>New districts and splits (MAUP)</h3>
+          <p>The map is today’s boundaries (~820 polygons). The crop table keeps historical names. Tirupati exists in the crop file only from 2022–23; Chittoor still has the older years. We do not copy Chittoor yield onto Tirupati. Rainfall is the opposite: every current polygon, including Tirupati, gets a zonal mean from the IMD grid in every year, so a new district can show rain in 2014 even though it had no crop row then.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Same name on several polygons</h3>
+          <p>The map has more features than unique district names. If two polygons normalise to the same name, they share the same crop or rain record. That is a map-file issue, not an extra statistic.</p>
+        </article>
+        <article class="edge-item">
+          <h3>IMD ocean and missing cells</h3>
+          <p>Grid value <code>-999</code> is treated as missing (ocean or no observation), not as rainfall. Only finite land cells enter the district average.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Districts smaller than a 0.25° cell</h3>
+          <p>Assignment is point-in-polygon on the cell centre. If that misses, we try intersection. Tiny districts that still catch no cell take the nearest IMD cell to their centroid so they are not silently dropped from rainfall.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Incomplete rainfall seasons</h3>
+          <p>A district–season is dropped if fewer than 90% of expected days are present: 122 for Kharif (1 Jun–30 Sep), 182 for Rabi (1 Oct–31 Mar), 365 for Annual (1 Jan–31 Dec), or 366 in a leap calendar year. Partial seasons are not scaled up to look complete.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Rabi across 1 January</h3>
+          <p>Rabi rainfall for <code>2014-2015</code> is 1 October 2014 through 31 March 2015. January–March 2016 belongs to <code>2015-2016</code>, not to <code>2014-2015</code>. Kharif for <code>2014-2015</code> is only 1 June 2014 through 30 September 2014. Full windows are in <strong>Seasons and dates</strong>.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Rainfall anomaly</h3>
+          <p>Anomaly is percent difference from that district’s own long-term seasonal mean in the processed file. It is not a comparison to a neighbouring district. The colour scale is centred at zero and shared by left and right, so one very wet year can stretch both sides.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Left and right colour scale</h3>
+          <p>Both scenarios share one scale built from the values that exist on either side. A district missing on one side stays grey there; we do not interpolate the gap. Hover shows “No data” rather than 0.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Rain does not depend on crop</h3>
+          <p>When the metric is rainfall or anomaly, crop menus are disabled. Rain does not depend on crop.</p>
+        </article>
+        <article class="edge-item">
+          <h3>Files missing or unloadable</h3>
+          <p>If the page cannot fetch the CSV or GeoJSON (file://, blocked port, missing path), it says so and offers local file pickers. It does not fall back to sample or dummy districts.</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="home-block">
+      <h2>How to read the map</h2>
+      <div class="steps">
+        <article class="step">
+          <span class="n">1 · Metric</span>
+          <strong>Pick what to colour</strong>
+          <p>Yield, sown area, rainfall in millimetres, or rainfall anomaly. Red is drier than normal; blue is wetter.</p>
+        </article>
+        <article class="step">
+          <span class="n">2 · Scenarios</span>
+          <strong>Left vs right</strong>
+          <p>Set crop, season and year on each side. For rainfall, crop is disabled — rain does not depend on crop.</p>
+        </article>
+        <article class="step">
+          <span class="n">3 · Slider</span>
+          <strong>Drag the bar</strong>
+          <p>Wipe one map over the other. Pan and zoom stay locked together so you are always looking at the same place.</p>
+        </article>
+        <article class="step">
+          <span class="n">4 · Hover</span>
+          <strong>Read the numbers</strong>
+          <p>Point at a district for the left value, the right value, and the difference. Both sides share one colour scale.</p>
+        </article>
+        <article class="step">
+          <span class="n">5 · Gaps</span>
+          <strong>Grey is missing</strong>
+          <p>Grey means there is no crop statistics row for that district, crop, season and year — not a yield of zero. Rainfall still colours almost every polygon because it comes from the IMD grid, not the crop table. Prefer Kharif over Total if the yield map looks empty.</p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="explorer">
+  <div id="map"></div>
+
+  <div class="overlay topbar">
+    <div class="card brand">
+      <div class="brand-actions">
+        <button type="button" class="btn btn-ghost home-link" id="homeBtn">Home</button>
+        <button type="button" class="btn btn-ghost home-link" id="methodologyBtn">Methodology</button>
+      </div>
+      <div>
+        <h1>India Crop Yield Explorer</h1>
+        <p>Swipe to compare yield, sown area, or IMD rainfall across two scenarios.</p>
+      </div>
+    </div>
+    <div class="card metric-card">
+      <label for="metric">Metric</label>
+      <select id="metric">
+        <option value="yield">Yield (t/ha)</option>
+        <option value="area">Sown area (ha)</option>
+        <option value="rain">IMD rainfall (mm)</option>
+        <option value="anomaly">IMD rainfall anomaly (%)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="overlay card scenario left" id="leftCard" hidden>
+    <div class="tag">Left scenario</div>
+    <div class="grid">
+      <div>
+        <label for="leftCrop">Crop</label>
+        <select id="leftCrop"></select>
+      </div>
+      <div>
+        <label for="leftSeason">Season</label>
+        <select id="leftSeason"></select>
+      </div>
+      <div>
+        <label for="leftYear">Year</label>
+        <select id="leftYear"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay card scenario right" id="rightCard" hidden>
+    <div class="tag">Right scenario</div>
+    <div class="grid">
+      <div>
+        <label for="rightCrop">Crop</label>
+        <select id="rightCrop"></select>
+      </div>
+      <div>
+        <label for="rightSeason">Season</label>
+        <select id="rightSeason"></select>
+      </div>
+      <div>
+        <label for="rightYear">Year</label>
+        <select id="rightYear"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay card legend-card" id="legendCard" hidden>
+    <h2 id="legendTitle">Yield</h2>
+    <div class="readout" id="legendReadout"></div>
+    <div class="legend">
+      <div class="bar" id="legendBar"></div>
+      <div class="ticks" id="legendTicks"></div>
+      <div class="unit"><span class="swatch"></span><span>Grey districts have no record in that scenario.</span></div>
+    </div>
+  </div>
+
+  <div class="swipe" id="swipe" hidden>
+    <div class="swipe-line"></div>
+    <button type="button" class="swipe-handle" id="swipeHandle" aria-label="Drag to compare">‹ ›</button>
+    <div class="howto" id="howto">Drag the slider to visually compare these two maps.</div>
+  </div>
+
+  <div class="notice" id="notice" hidden></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function () {
+  "use strict";
+
+  var PANEL_URL = "data/processed/district_panel.csv";
+  var GEO_URL   = "data/INDIA_DISTRICTS.geojson";
+  var STATE_URL = "data/INDIA_STATES.geojson";
+
+  var REQUIRED = ["district_key", "year", "season", "row_type"];
+
+  var YIELD_RAMP = ["#FBF3C4", "#DCE68A", "#9CCB6E", "#4EA45F", "#186F49", "#0B4130"];
+  var AREA_RAMP  = ["#F4EDE1", "#E0D0A8", "#C4A56A", "#8F6B3A", "#5C4224", "#2F2416"];
+  var RAIN_RAMP  = ["#F4EDE1", "#CDE0D8", "#8EBEB8", "#4E88A8", "#1C4E6E", "#0B2E44"];
+  var ANOMALY_RAMP = ["#8C2D18", "#BC5F3C", "#E3AE8B", "#F0EEE8", "#A6C6D6", "#4E88A8", "#1C4E6E"];
+  var NO_DATA = "#E3E7E5";
+
+  var DISTRICT_KEYS = ["district", "DISTRICT", "District", "dtname", "DISTRICT_N", "distname", "NAME_2"];
+  var STATE_KEYS = ["state", "STATE", "State", "stname", "st_nm", "NAME_1"];
+
+  var el = function (id) { return document.getElementById(id); };
+
+  function hexToRgb(hex) {
+    var h = hex.replace("#", "");
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+
+  function rampColor(ramp, t) {
+    if (t === null || t === undefined || t !== t) { return NO_DATA; }
+    t = Math.min(Math.max(t, 0), 1);
+    var pos = t * (ramp.length - 1);
+    var low = Math.floor(pos);
+    var high = Math.min(low + 1, ramp.length - 1);
+    var frac = pos - low;
+    var a = hexToRgb(ramp[low]), b = hexToRgb(ramp[high]);
+    var mix = a.map(function (v, i) { return Math.round(v + (b[i] - v) * frac); });
+    return "rgb(" + mix.join(",") + ")";
+  }
+
+  function gradient(ramp) {
+    var stops = ramp.map(function (c, i) {
+      return c + " " + Math.round(i / (ramp.length - 1) * 100) + "%";
+    });
+    return "linear-gradient(to right, " + stops.join(", ") + ")";
+  }
+
+  function normalize(name) {
+    var text = String(name == null ? "" : name).toLowerCase().trim().replace(/&/g, "and");
+    text = text.replace(/[^a-z0-9]+/g, "");
+    if (text.length > 8 && text.slice(-8) === "district") { text = text.slice(0, -8); }
+    return text;
+  }
+
+  function recordForFeature(lookup, districtName) {
+    return lookup[normalize(districtName)] || null;
+  }
+
+  function pick(props, keys) {
+    for (var i = 0; i < keys.length; i++) {
+      if (props && props[keys[i]] != null && props[keys[i]] !== "") { return props[keys[i]]; }
+    }
+    return null;
+  }
+
+  function num(value) {
+    if (value === null || value === undefined || value === "") { return NaN; }
+    var n = Number(value);
+    return isFinite(n) ? n : NaN;
+  }
+
+  function fmt(value, digits, suffix) {
+    if (value === null || value === undefined || value !== value) { return "No data"; }
+    return Number(value).toLocaleString("en-IN", {
+      minimumFractionDigits: digits, maximumFractionDigits: digits
+    }) + (suffix || "");
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function showNotice(title, bodyHtml) {
+    var box = el("notice");
+    box.innerHTML = "<h3>" + title + "</h3>" + bodyHtml;
+    box.hidden = false;
+  }
+
+  function hideNotice() { el("notice").hidden = true; }
+
+  function parseCsv(text) {
+    text = String(text || "").replace(/^\uFEFF/, "");
+    var rows = [];
+    var row = [];
+    var field = "";
+    var inQuotes = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 1; }
+          else { inQuotes = false; }
+        } else {
+          field += c;
+        }
+      } else if (c === '"') {
+        inQuotes = true;
+      } else if (c === ",") {
+        row.push(field);
+        field = "";
+      } else if (c === "\n") {
+        row.push(field);
+        if (row.length > 1 || row[0] !== "") { rows.push(row); }
+        row = [];
+        field = "";
+      } else if (c !== "\r") {
+        field += c;
+      }
+    }
+    if (field !== "" || row.length) {
+      row.push(field);
+      rows.push(row);
+    }
+    if (!rows.length) { return []; }
+    var header = rows[0].map(function (h) { return h.trim(); });
+    var out = [];
+    for (var r = 1; r < rows.length; r++) {
+      var obj = {};
+      for (var c = 0; c < header.length; c++) {
+        obj[header[c]] = rows[r][c] == null ? "" : rows[r][c];
+      }
+      out.push(obj);
+    }
+    return out;
+  }
+
+  var records = [];
+  var geojson = null, statesGeojson = null;
+  var years = [], crops = [];
+  var map, leftLayer, rightLayer, hoverLayer;
+  var leftLookup = {}, rightLookup = {};
+  var swipeX = 0.5;
+  var mapsReady = false;
+  var metricState = { field: "yield_t_ha", digits: 2, suffix: " t/ha" };
+
+  function boot() {
+    if (typeof L === "undefined") {
+      showNotice("The map library didn't load",
+        "<p>Leaflet is pulled from unpkg.com, so this page needs a network connection the first time it runs.</p>");
+      return;
+    }
+
+    showNotice("Loading data",
+      "<p>Reading <code>district_panel.csv</code> and district boundaries.</p>");
+
+    Promise.all([
+      fetchText(PANEL_URL),
+      fetchJson(GEO_URL),
+      fetchJson(STATE_URL).catch(function () { return null; })
+    ]).then(function (results) {
+      hideNotice();
+      start(results[0], results[1], results[2]);
+    }).catch(function (err) {
+      offerFilePickers(err);
+    });
+  }
+
+  function fetchText(url) {
+    return fetch(url, { cache: "no-store" }).then(function (response) {
+      if (!response.ok) { throw new Error(url + " returned " + response.status); }
+      return response.text();
+    });
+  }
+
+  function fetchJson(url) {
+    return fetch(url, { cache: "no-store" }).then(function (response) {
+      if (!response.ok) { throw new Error(url + " returned " + response.status); }
+      return response.json();
+    });
+  }
+
+  function offerFilePickers(err) {
+    showNotice("Waiting on data",
+      "<p>Could not read <code>" + PANEL_URL + "</code> and <code>" + GEO_URL +
+      "</code>. (" + escapeHtml(err.message) + ")</p>" +
+      "<p>Run <code>crop_clean.ipynb</code>, <code>imd_clean.ipynb</code> and <code>build_panel.ipynb</code>, " +
+      "serve this folder over HTTP, then open <code>http://127.0.0.1:8080</code> — or pick the files here:</p>" +
+      '<div class="pickers">' +
+      '<div><label for="pickAgri">district_panel.csv</label>' +
+      '<input type="file" id="pickAgri" accept=".csv,text/csv"></div>' +
+      '<div><label for="pickGeo">District boundaries (.geojson)</label>' +
+      '<input type="file" id="pickGeo" accept=".geojson,.json"></div>' +
+      "</div>");
+
+    var picked = {};
+    function tryStart() {
+      if (picked.pickAgri && picked.pickGeo) {
+        hideNotice();
+        start(picked.pickAgri, picked.pickGeo, null);
+      }
+    }
+    ["pickAgri", "pickGeo"].forEach(function (id) {
+      el(id).addEventListener("change", function (event) {
+        var file = event.target.files[0];
+        if (!file) { return; }
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            picked[id] = id === "pickAgri" ? reader.result : JSON.parse(reader.result);
+          } catch (parseErr) {
+            showNotice("That file couldn't be read",
+              "<p>" + escapeHtml(file.name) + ": " + escapeHtml(parseErr.message) + "</p>");
+            return;
+          }
+          tryStart();
+        };
+        reader.readAsText(file);
+      });
+    });
+  }
+
+  function start(csvText, geo, states) {
+    var agri = parseCsv(csvText);
+    if (!agri.length) {
+      showNotice("The panel is empty",
+        "<p><code>district_panel.csv</code> parsed, but it contains no records. Run the cleaning notebooks and <code>build_panel.ipynb</code>.</p>");
+      return;
+    }
+    var missing = REQUIRED.filter(function (field) { return !(field in agri[0]); });
+    if (missing.length) {
+      showNotice("Missing fields in the panel",
+        "<p>The CSV has no <code>" + missing.join("</code>, <code>") + "</code>.</p>");
+      return;
+    }
+    if (!geo || !Array.isArray(geo.features) || !geo.features.length) {
+      showNotice("The boundary file has no districts",
+        "<p><code>INDIA_DISTRICTS.geojson</code> needs a non-empty <code>features</code> array.</p>");
+      return;
+    }
+
+    geojson = geo;
+    statesGeojson = states && Array.isArray(states.features) ? states : null;
+
+    records = [];
+    agri.forEach(function (row) {
+      var key = normalize(row.district_key || row.district);
+      var year = String(row.year == null ? "" : row.year).trim();
+      var season = String(row.season == null ? "" : row.season).trim();
+      if (!key || !year || !season) { return; }
+      records.push({
+        state: String(row.state == null ? "" : row.state).trim(),
+        district: String(row.district == null ? "" : row.district).trim(),
+        year: year,
+        crop: String(row.crop == null ? "" : row.crop).trim(),
+        season: season,
+        key: key,
+        row_type: String(row.row_type == null ? "" : row.row_type).trim(),
+        crop_missing_reason: String(row.crop_missing_reason == null ? "" : row.crop_missing_reason).trim(),
+        yield_t_ha: num(row.yield_t_ha),
+        area_ha: num(row.area_ha),
+        production_tonnes: num(row.production_tonnes),
+        rain_mm: num(row.rain_mm),
+        rain_anom_pct: num(row.rain_anom_pct)
+      });
+    });
+
+    if (!records.length) {
+      showNotice("No usable records", "<p>Every row was missing a district key, season or year.</p>");
+      return;
+    }
+
+    years = Array.from(new Set(records.map(function (r) { return r.year; }))).sort();
+    crops = Array.from(new Set(records.map(function (r) { return r.crop; }).filter(Boolean))).sort();
+
+    buildControls();
+    initMap();
+    update();
+  }
+
+  function seasonsForCrop(crop) {
+    var set = {};
+    records.forEach(function (r) {
+      if (r.crop === crop && r.season && r.row_type !== "rain_only") { set[r.season] = true; }
+    });
+    return Object.keys(set).sort();
+  }
+
+  function yearsForCropSeason(crop, season) {
+    var set = {};
+    records.forEach(function (r) {
+      if (r.crop === crop && r.season === season && r.row_type !== "rain_only") { set[r.year] = true; }
+    });
+    var list = Object.keys(set).sort();
+    return list.length ? list : years;
+  }
+
+  function fillSelect(select, options, preferred) {
+    select.innerHTML = options.map(function (c) {
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + "</option>";
+    }).join("");
+    if (preferred && options.indexOf(preferred) !== -1) { select.value = preferred; }
+  }
+
+  function syncSide(prefix, keepYear) {
+    var crop = el(prefix + "Crop").value;
+    var seasons = seasonsForCrop(crop);
+    var seasonPreferred = el(prefix + "Season").value;
+    fillSelect(el(prefix + "Season"), seasons,
+      seasons.indexOf(seasonPreferred) !== -1 ? seasonPreferred :
+      (seasons.indexOf("Kharif") !== -1 ? "Kharif" : seasons[0]));
+    var yearList = yearsForCropSeason(crop, el(prefix + "Season").value);
+    var yearPreferred = keepYear || el(prefix + "Year").value;
+    fillSelect(el(prefix + "Year"), yearList,
+      yearList.indexOf(yearPreferred) !== -1 ? yearPreferred : yearList[yearList.length - 1]);
+  }
+
+  function bindSide(prefix) {
+    el(prefix + "Crop").addEventListener("change", function () {
+      syncSide(prefix);
+      update();
+    });
+    el(prefix + "Season").addEventListener("change", function () {
+      syncSide(prefix, el(prefix + "Year").value);
+      update();
+    });
+    el(prefix + "Year").addEventListener("change", update);
+  }
+
+  function buildControls() {
+    var defaultCrop = crops.indexOf("Rice") !== -1 ? "Rice" : crops[0];
+    fillSelect(el("leftCrop"), crops, defaultCrop);
+    fillSelect(el("rightCrop"), crops, defaultCrop);
+    syncSide("left");
+    syncSide("right");
+
+    var leftYears = yearsForCropSeason(el("leftCrop").value, el("leftSeason").value);
+    if (leftYears.length > 1) {
+      el("leftYear").value = leftYears[0];
+    }
+
+    bindSide("left");
+    bindSide("right");
+    el("metric").addEventListener("change", function () {
+      syncCropEnabled();
+      update();
+    });
+    syncCropEnabled();
+
+    el("leftCard").hidden = false;
+    el("rightCard").hidden = false;
+    el("legendCard").hidden = false;
+  }
+
+  function choroplethStyle() {
+    return { fillColor: NO_DATA, color: "#FFFFFF", weight: 0.4, fillOpacity: 0.78 };
+  }
+
+  function initMap() {
+    if (mapsReady) { return; }
+    mapsReady = true;
+
+    map = L.map("map", {
+      zoomControl: false,
+      scrollWheelZoom: true,
+      attributionControl: true
+    }).setView([22.4, 79.5], 5);
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(map);
+
+    map.createPane("leftPane");
+    map.createPane("rightPane");
+    map.createPane("hoverPane");
+    map.getPane("leftPane").style.zIndex = 450;
+    map.getPane("rightPane").style.zIndex = 451;
+    map.getPane("hoverPane").style.zIndex = 460;
+    map.getPane("leftPane").style.pointerEvents = "none";
+    map.getPane("rightPane").style.pointerEvents = "none";
+
+    leftLayer = L.geoJSON(geojson, { pane: "leftPane", style: choroplethStyle, interactive: false }).addTo(map);
+    rightLayer = L.geoJSON(geojson, { pane: "rightPane", style: choroplethStyle, interactive: false }).addTo(map);
+
+    hoverLayer = L.geoJSON(geojson, {
+      pane: "hoverPane",
+      style: { fillColor: "#000", fillOpacity: 0, color: "#14211E", weight: 0, opacity: 0 },
+      onEachFeature: function (feature, lyr) {
+        lyr.bindTooltip("", { sticky: true, className: "district-tip", direction: "auto" });
+        lyr.on("mouseover", function () {
+          lyr.setStyle({ weight: 2, opacity: 1, fillOpacity: 0.08 });
+        });
+        lyr.on("mouseout", function () {
+          lyr.setStyle({ weight: 0, opacity: 0, fillOpacity: 0 });
+        });
+      }
+    }).addTo(map);
+
+    if (statesGeojson) {
+      L.geoJSON(statesGeojson, {
+        pane: "hoverPane",
+        interactive: false,
+        style: {
+          fillOpacity: 0,
+          fillColor: "transparent",
+          color: "#14211E",
+          weight: 1.2,
+          opacity: 0.75
+        }
+      }).addTo(map);
+    }
+
+    try { map.fitBounds(leftLayer.getBounds(), { padding: [24, 24] }); } catch (e) { /* empty */ }
+
+    bindSwipe();
+    el("swipe").hidden = false;
+    map.on("move zoom resize", updateClip);
+    window.addEventListener("resize", function () {
+      map.invalidateSize();
+      updateClip();
+    });
+    updateClip();
+  }
+
+  function bindSwipe() {
+    var handle = el("swipeHandle");
+    var dragging = false;
+
+    function setFromEvent(event) {
+      var point = event.touches ? event.touches[0] : event;
+      var rect = map.getContainer().getBoundingClientRect();
+      var x = (point.clientX - rect.left) / rect.width;
+      swipeX = Math.min(Math.max(x, 0.04), 0.96);
+      el("howto").hidden = true;
+      updateClip();
+    }
+
+    function startDrag(event) {
+      dragging = true;
+      map.dragging.disable();
+      setFromEvent(event);
+      event.preventDefault();
+    }
+    function moveDrag(event) {
+      if (!dragging) { return; }
+      setFromEvent(event);
+    }
+    function endDrag() {
+      if (!dragging) { return; }
+      dragging = false;
+      map.dragging.enable();
+    }
+
+    handle.addEventListener("mousedown", startDrag);
+    handle.addEventListener("touchstart", startDrag, { passive: false });
+    window.addEventListener("mousemove", moveDrag);
+    window.addEventListener("touchmove", moveDrag, { passive: false });
+    window.addEventListener("mouseup", endDrag);
+    window.addEventListener("touchend", endDrag);
+  }
+
+  function updateClip() {
+    if (!map) { return; }
+    var size = map.getSize();
+    var nw = map.containerPointToLayerPoint([0, 0]);
+    var se = map.containerPointToLayerPoint(size);
+    var clipX = nw.x + size.x * swipeX;
+    var leftPane = map.getPane("leftPane");
+    var rightPane = map.getPane("rightPane");
+    leftPane.style.clip = "rect(" + nw.y + "px," + clipX + "px," + se.y + "px," + nw.x + "px)";
+    rightPane.style.clip = "rect(" + nw.y + "px," + se.x + "px," + se.y + "px," + clipX + "px)";
+    el("swipe").style.left = (size.x * swipeX) + "px";
+  }
+
+  function scenarioOf(prefix) {
+    return {
+      crop: el(prefix + "Crop").value,
+      season: el(prefix + "Season").value,
+      year: el(prefix + "Year").value
+    };
+  }
+
+  function rainSeason(season) {
+    var s = String(season || "").toLowerCase();
+    if (s === "kharif") { return "Kharif"; }
+    if (s === "rabi") { return "Rabi"; }
+    return "Annual";
+  }
+
+  function isCropMetric() {
+    return metricConfig().source === "crop";
+  }
+
+  function syncCropEnabled() {
+    var off = !isCropMetric();
+    el("leftCrop").disabled = off;
+    el("rightCrop").disabled = off;
+  }
+
+  function seasonalLookup(list, scenario) {
+    var season = rainSeason(scenario.season);
+    var out = {};
+    list.forEach(function (row) {
+      if (row.row_type === "rain_only" && row.season === season && row.year === scenario.year) {
+        out[row.key] = row;
+      }
+    });
+    return out;
+  }
+
+  function rainLookupFor(scenario) {
+    return seasonalLookup(records, scenario);
+  }
+
+  function lookupFor(scenario, metric) {
+    if (metric && metric.source === "rain") {
+      return seasonalLookup(records, scenario);
+    }
+    var out = {};
+    records.forEach(function (row) {
+      if (row.row_type !== "rain_only" && row.crop === scenario.crop && row.season === scenario.season && row.year === scenario.year) {
+        out[row.key] = row;
+      }
+    });
+    return out;
+  }
+
+  function metricConfig() {
+    var value = el("metric").value;
+    if (value === "area") {
+      return { field: "area_ha", ramp: AREA_RAMP, digits: 0, suffix: " ha", title: "Sown area", units: "hectares", source: "crop" };
+    }
+    if (value === "rain") {
+      return { field: "rain_mm", ramp: RAIN_RAMP, digits: 0, suffix: " mm", title: "IMD rainfall", units: "millimetres", source: "rain" };
+    }
+    if (value === "anomaly") {
+      return { field: "rain_anom_pct", ramp: ANOMALY_RAMP, digits: 1, suffix: "%", title: "IMD rainfall anomaly", units: "% vs long-term normal", source: "rain", centerZero: true };
+    }
+    return { field: "yield_t_ha", ramp: YIELD_RAMP, digits: 2, suffix: " t/ha", title: "Yield", units: "tonnes per hectare", source: "crop" };
+  }
+
+  function valuesOf(lookup, field) {
+    return Object.keys(lookup).map(function (k) { return lookup[k][field]; })
+      .filter(function (v) { return v === v; });
+  }
+
+  function labelOf(scenario, metric) {
+    if (metric && metric.source !== "crop") {
+      return rainSeason(scenario.season) + " \u00b7 " + scenario.year;
+    }
+    return scenario.crop + " \u00b7 " + scenario.season + " \u00b7 " + scenario.year;
+  }
+
+  function tooltipHtml(district, state, left, right, leftSc, rightSc, metric, leftWhy, rightWhy) {
+    function row(tag, rec, sc) {
+      var value = rec ? rec[metric.field] : NaN;
+      return '<div class="side"><span class="k">' + tag + '</span><span>' +
+        escapeHtml(labelOf(sc, metric)) + '</span><span>' + fmt(value, metric.digits, metric.suffix) +
+        "</span></div>";
+    }
+    var lv = left ? left[metric.field] : NaN;
+    var rv = right ? right[metric.field] : NaN;
+    var delta = "";
+    if (lv === lv && rv === rv) {
+      var d = rv - lv;
+      var sign = d > 0 ? "+" : "";
+      delta = '<div class="delta"><span>Change</span><span>' +
+        sign + fmt(Math.abs(d) === 0 ? 0 : d, metric.digits, metric.suffix) + "</span></div>";
+    }
+    var miss = "";
+    if (metric.source === "crop") {
+      if (lv !== lv && leftWhy) {
+        miss += '<div class="tip-miss"><span class="k">Left · </span>' + escapeHtml(leftWhy) + "</div>";
+      }
+      if (rv !== rv && rightWhy) {
+        miss += '<div class="tip-miss"><span class="k">Right · </span>' + escapeHtml(rightWhy) + "</div>";
+      }
+    }
+    return '<div class="tip-name">' + escapeHtml(district) + "</div>" +
+           '<div class="tip-state">' + escapeHtml(state) + "</div>" +
+           row("Left", left, leftSc) +
+           row("Right", right, rightSc) +
+           delta + miss;
+  }
+
+  function paintLayer(layer, lookup, ramp, field, low, span) {
+    var matched = 0;
+    layer.eachLayer(function (lyr) {
+      var props = lyr.feature.properties || {};
+      var district = pick(props, DISTRICT_KEYS);
+      var record = recordForFeature(lookup, district);
+      var raw = record ? record[field] : NaN;
+      if (raw === raw) { matched += 1; }
+      var t = (span && raw === raw) ? (raw - low) / span : NaN;
+      lyr.setStyle({
+        fillColor: raw === raw ? rampColor(ramp, t) : NO_DATA,
+        color: "#FFFFFF",
+        weight: 0.4,
+        fillOpacity: 0.78
+      });
+    });
+    return matched;
+  }
+
+  function updateHover(leftSc, rightSc, metric) {
+    var leftSk = rainLookupFor(leftSc);
+    var rightSk = rainLookupFor(rightSc);
+    hoverLayer.eachLayer(function (lyr) {
+      var props = lyr.feature.properties || {};
+      var districtName = pick(props, DISTRICT_KEYS);
+      var key = normalize(districtName);
+      var left = recordForFeature(leftLookup, districtName);
+      var right = recordForFeature(rightLookup, districtName);
+      var leftWhy = (leftSk[key] && leftSk[key].crop_missing_reason) || "";
+      var rightWhy = (rightSk[key] && rightSk[key].crop_missing_reason) || "";
+      lyr.setTooltipContent(tooltipHtml(
+        (left && left.district) || (right && right.district) || districtName || "Unnamed district",
+        (left && left.state) || (right && right.state) || pick(props, STATE_KEYS) || "—",
+        left, right, leftSc, rightSc, metric, leftWhy, rightWhy
+      ));
+    });
+  }
+
+  function update() {
+    var metric = metricConfig();
+    metricState = metric;
+    var leftSc = scenarioOf("left");
+    var rightSc = scenarioOf("right");
+    leftLookup = lookupFor(leftSc, metric);
+    rightLookup = lookupFor(rightSc, metric);
+
+    var leftVals = valuesOf(leftLookup, metric.field);
+    var rightVals = valuesOf(rightLookup, metric.field);
+    var all = leftVals.concat(rightVals);
+
+    el("legendTitle").textContent = metric.title + " · " + metric.units;
+
+    if (!all.length) {
+      el("legendReadout").textContent = "Neither scenario has values for this metric.";
+      el("legendBar").style.background = gradient(metric.ramp);
+      el("legendTicks").innerHTML = "<span>—</span><span>—</span><span>—</span>";
+      paintLayer(leftLayer, {}, metric.ramp, metric.field, 0, 1);
+      paintLayer(rightLayer, {}, metric.ramp, metric.field, 0, 1);
+      updateHover(leftSc, rightSc, metric);
+      return;
+    }
+
+    var low = Math.min.apply(null, all);
+    var high = Math.max.apply(null, all);
+    if (metric.centerZero) {
+      var bound = Math.max(Math.abs(low), Math.abs(high)) || 1;
+      low = -bound;
+      high = bound;
+    }
+    var span = (high - low) || 1;
+
+    var leftMatched = paintLayer(leftLayer, leftLookup, metric.ramp, metric.field, low, span);
+    var rightMatched = paintLayer(rightLayer, rightLookup, metric.ramp, metric.field, low, span);
+    updateHover(leftSc, rightSc, metric);
+
+    var nPoly = geojson && geojson.features ? geojson.features.length : 0;
+    var hint = "";
+    if (metric.source === "crop" && (leftSc.season === "Total" || rightSc.season === "Total")) {
+      hint = " Season Total is reported for fewer districts than Kharif.";
+    }
+    el("legendReadout").textContent =
+      "Coloured " + leftMatched + " / " + nPoly + " districts (left) and " +
+      rightMatched + " / " + nPoly + " (right). Grey is missing, not zero." + hint;
+    el("legendBar").style.background = gradient(metric.ramp);
+    if (metric.centerZero) {
+      el("legendTicks").innerHTML =
+        "<span>\u2212" + Math.abs(low).toFixed(0) + "%</span><span>normal</span><span>+" +
+        Math.abs(high).toFixed(0) + "%</span>";
+    } else if (metric.digits === 0) {
+      el("legendTicks").innerHTML =
+        "<span>" + Math.round(low).toLocaleString("en-IN") + "</span>" +
+        "<span>" + Math.round((low + high) / 2).toLocaleString("en-IN") + "</span>" +
+        "<span>" + Math.round(high).toLocaleString("en-IN") + metric.suffix + "</span>";
+    } else {
+      el("legendTicks").innerHTML =
+        "<span>" + low.toFixed(2) + "</span>" +
+        "<span>" + ((low + high) / 2).toFixed(2) + "</span>" +
+        "<span>" + high.toFixed(2) + metric.suffix + "</span>";
+    }
+  }
+
+  function showHome() {
+    document.body.classList.remove("on-methodology");
+    document.body.classList.add("on-home");
+    window.scrollTo(0, 0);
+    try { history.replaceState(null, "", "#home"); } catch (e) { location.hash = "home"; }
+  }
+
+  function showMethodology() {
+    document.body.classList.remove("on-home");
+    document.body.classList.add("on-methodology");
+    window.scrollTo(0, 0);
+    try { history.replaceState(null, "", "#methodology"); } catch (e) { location.hash = "methodology"; }
+  }
+
+  function showExplorer() {
+    document.body.classList.remove("on-home");
+    document.body.classList.remove("on-methodology");
+    try { history.replaceState(null, "", "#explorer"); } catch (e) { location.hash = "explorer"; }
+    if (map) {
+      setTimeout(function () {
+        map.invalidateSize();
+        updateClip();
+      }, 50);
+    }
+  }
+
+  el("homeBtn").addEventListener("click", showHome);
+  el("openExplorer").addEventListener("click", showExplorer);
+  el("methodologyBtn").addEventListener("click", showMethodology);
+  el("backToExplorer").addEventListener("click", showExplorer);
+  if (location.hash === "#explorer") {
+    document.body.classList.remove("on-home");
+  } else if (location.hash === "#methodology") {
+    document.body.classList.remove("on-home");
+    document.body.classList.add("on-methodology");
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

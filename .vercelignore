@@ -1,0 +1,12 @@
+# Only index.html + data/processed/district_panel.csv + the two geojson files
+# are ever fetched by the browser at runtime. Everything below is pipeline
+# source/output that the live site never reads, so keep it out of the deploy.
+*.ipynb
+__pycache__/
+.ipynb_checkpoints/
+Crop_data/
+data/imd/
+data/processed/crop_clean.csv
+data/processed/crop_unmatched_districts.csv
+data/processed/rainfall_district_seasonal.csv
+requirements.txt
