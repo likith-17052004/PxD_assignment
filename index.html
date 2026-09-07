@@ -1048,6 +1048,18 @@
     }, 3000);
   }
 
+  var bootStarted = false;
+
+  function ensureBoot() {
+    // The panel CSV is tens of MB and parsing it blocks the main thread for
+    // a couple of seconds. Don't start that until the explorer is actually
+    // needed, or a click on "Open the explorer" right after page load can
+    // sit queued behind that parse and look unresponsive.
+    if (bootStarted) { return; }
+    bootStarted = true;
+    boot();
+  }
+
   function boot() {
     if (typeof L === "undefined") {
       showNotice("The map library didn't load",
@@ -1621,17 +1633,19 @@
   }
 
   el("homeBtn").addEventListener("click", showHome);
-  el("openExplorer").addEventListener("click", showExplorer);
+  el("openExplorer").addEventListener("click", function () {
+    ensureBoot();
+    showExplorer();
+  });
   el("methodologyBtn").addEventListener("click", showMethodology);
   el("backToExplorer").addEventListener("click", showExplorer);
   if (location.hash === "#explorer") {
     document.body.classList.remove("on-home");
+    ensureBoot();
   } else if (location.hash === "#methodology") {
     document.body.classList.remove("on-home");
     document.body.classList.add("on-methodology");
   }
-
-  boot();
 })();
 </script>
 </body>
