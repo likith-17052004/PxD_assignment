@@ -1270,7 +1270,8 @@
     map = L.map("map", {
       zoomControl: false,
       scrollWheelZoom: true,
-      attributionControl: true
+      attributionControl: true,
+      preferCanvas: true
     }).setView([22.4, 79.5], 5);
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
